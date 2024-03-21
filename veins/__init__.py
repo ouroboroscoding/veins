@@ -255,7 +255,7 @@ class SyncApplication(WebSocketApplication):
 						)
 
 					# Fetch the data associated with the key in the message
-					sConnect = _r.get(data['key']);
+					sConnect = _r.get(data['key'])
 
 					# If the key doesn't exist
 					if not sConnect:
@@ -338,38 +338,32 @@ class SyncApplication(WebSocketApplication):
 							'Received track message before authorization'
 						)
 
-					# Check for an object and key
-					for s in [ 'service', 'key' ]:
+					# Check for a key
+					if 'key' not in data:
+						if _verbose:
+							print('Missing `key` in message: ""' % message)
+						return self._fail(
+							9,
+							'Missing `key` in message: ""' % message
+						)
 
-						# If the data is missing
-						if s not in data:
-							if _verbose:
-								print('Missing `%s` in message: ""' % (
-									s, message
-								))
-							return self._fail(
-								9,
-								'Missing `%s` in message: ""' % ( s, message )
-							)
+					# Make sure the data is a string
+					if not isinstance(data['key'], str):
+						data['key'] = str(data['key'])
 
-						# Make sure the data is a string
-						if not isinstance(data[s], str):
-							data[s] = str(data[s])
-
-					# Combine the two
-					track = "%s%s" % ( data['service'], data['key'] )
-
-					# Add the track code to the client list
+					# Add the key to the client list
 					try:
-						_r_clients[track].append(self)
+						_r_clients[data['key']].append(self)
 					except:
-						_r_clients[track] = [self]
-						_r_pubsub.subscribe(track)
+						_r_clients[data['key']] = [self]
+						_r_pubsub.subscribe(data['key'])
 
 					# Add it to the list on this socket
 					if _verbose:
-						print('Successfully started tracking: "%s"' % track)
-					self.tracking.append(track)
+						print(
+							'Successfully started tracking: "%s"' % data['key']
+						)
+					self.tracking.append(data['key'])
 
 				# Else if it's a message to stop tracking something
 				elif data['_type'] == 'untrack':
@@ -385,43 +379,37 @@ class SyncApplication(WebSocketApplication):
 							'Received untrack message before authorization'
 						)
 
-					# Check for an object and key
-					for s in [ 'service', 'key' ]:
+					# Check for the key
+					if 'key' not in data:
+						if _verbose:
+							print('Missing `key` in message: ""' % message)
+						return self._fail(
+							9,
+							'Missing `key` in message: ""' % message
+						)
 
-						# If the data is missing
-						if s not in data:
-							if _verbose:
-								print('Missing `%s` in message: ""' % (
-									s, message
-								))
-							return self._fail(
-								9,
-								'Missing `%s` in message: ""' % ( s, message )
-							)
+					# Make sure the data is a string
+					if not isinstance(data['key'], str):
+						data['key'] = str(data['key'])
 
-						# Make sure the data is a string
-						if not isinstance(data[s], str):
-							data[s] = str(data[s])
+					# If the key exists in the clients
+					if data['key'] in _r_clients:
 
-						# Combine the two
-						track = "%s%s" % ( data['service'], data['key'] )
+						# If the socket exists, delete it
+						if self in _r_clients[data['key']]:
+							_r_clients[data['key']].remove(self)
 
-						# If the key exists in the clients
-						if track in _r_clients:
-
-							# If the socket exists, delete it
-							if self in _r_clients[track]:
-								_r_clients[track].remove(self)
-
-							# If there's no nore clients
-							if not len(_r_clients[track]):
-								del _r_clients[track]
-								_r_pubsub.unsubscribe(track)
+						# If there's no nore clients
+						if not len(_r_clients[data['key']]):
+							del _r_clients[data['key']]
+							_r_pubsub.unsubscribe(data['key'])
 
 					# Remove the list on this socket
 					if _verbose:
-						print('Successfully stopped tracking: "%s"' % track)
-					self.tracking.remove(track)
+						print(
+							'Successfully stopped tracking: "%s"' % data['key']
+						)
+					self.tracking.remove(data['key'])
 
 				# Else this is an invalid message
 				else:
